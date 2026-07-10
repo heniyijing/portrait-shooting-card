@@ -1,0 +1,2857 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-immersive-translate-page-theme="light"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人像拍摄执行卡</title>
+<style>
+  :root {
+    --card-gap: 24px;
+    --border: #e0e0e0;
+    --text: #333;
+    --muted: #888;
+    --accent: #d4a574;
+    --bg: #fafaf8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    background: #f0efeb;
+    color: var(--text);
+    line-height: 1.6;
+    padding: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* ── 顶部项目信息 ── */
+  .header {
+    background: white;
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: var(--card-gap);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .header h1 {
+    font-size: 26px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: #222;
+  }
+  .header .meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px 24px;
+    font-size: 14px;
+  }
+  .header .meta label {
+    color: var(--muted);
+    font-size: 12px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .header .meta span {
+    display: block;
+    border-bottom: 1px dashed #ddd;
+    padding: 4px 0;
+    min-height: 22px;
+  }
+  .header .meta span[contenteditable]:focus {
+    border-bottom-color: var(--accent);
+    outline: none;
+  }
+
+  /* ── Shot 卡片 ── */
+  .shot {
+    background: white;
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: var(--card-gap);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    page-break-inside: avoid;
+  }
+  .shot-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .shot-num {
+    background: #333;
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .shot-title {
+    font-size: 18px;
+    font-weight: 600;
+    border: none;
+    border-bottom: 1px dashed #ddd;
+    padding: 4px 0;
+    flex: 1;
+    min-width: 100px;
+  }
+  .shot-title:focus {
+    border-bottom-color: var(--accent);
+    outline: none;
+  }
+  .shot-del {
+    background: none;
+    border: 1px solid #ddd;
+    color: #999;
+    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .shot-del:hover {
+    background: #e53935;
+    color: #fff;
+    border-color: #e53935;
+  }
+
+  .shot-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* ── 左栏：参考图区（2 列自适应高度）── */
+  .ref-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 520px;
+    overflow-y: auto;
+    align-content: flex-start;
+  }
+  .ref-zone {
+    flex: 0 0 calc(50% - 3px);
+    min-width: 0;
+    border: 2px dashed #d0d0d0;
+    border-radius: 8px;
+    position: relative;
+    background: #fafaf8;
+    transition: border-color 0.2s;
+    min-height: 80px;
+    cursor: pointer;
+  }
+  .ref-zone:hover,
+  .ref-zone:focus-within {
+    border-color: var(--accent);
+  }
+  .ref-zone.has-image {
+    border-style: solid;
+    border-color: #ddd;
+    min-height: 0;
+  }
+  .ref-zone img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 300px;
+    object-fit: contain;
+  }
+  .ref-zone .placeholder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    text-align: center;
+    color: #bbb;
+    font-size: 12px;
+    padding: 4px;
+    width: 100%;
+  }
+  .ref-zone .placeholder .icon {
+    font-size: 22px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  /* 删除按钮 */
+  .ref-zone .del-btn {
+    display: none;
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    border: none;
+    font-size: 12px;
+    line-height: 22px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 5;
+    padding: 0;
+    transition: background 0.15s;
+  }
+  .ref-zone .del-btn:hover {
+    background: rgba(200,40,40,0.85);
+  }
+  .ref-zone.has-image .del-btn {
+    display: block;
+  }
+  /* 空单元格隐藏删除按钮 */
+  .ref-zone:not(.has-image) .del-btn {
+    display: none !important;
+  }
+
+  /* 格删除按钮（移除整个格子） */
+  .ref-zone .slot-del {
+    display: none;
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.45);
+    color: #fff;
+    border: none;
+    font-size: 14px;
+    line-height: 22px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 5;
+    padding: 0;
+    transition: background 0.15s;
+  }
+  .ref-zone .slot-del:hover {
+    background: rgba(200,40,40,0.85);
+  }
+  .ref-zone:hover .slot-del {
+    display: block;
+  }
+
+  /* ── 右栏：执行卡 ── */
+  .exec { display: flex; flex-direction: column; gap: 14px; }
+
+  .exec-block {}
+  .exec-block h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .exec-block .fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 12px;
+    font-size: 13px;
+  }
+  .exec-block .fields .field {
+    display: flex;
+    gap: 4px;
+    align-items: baseline;
+  }
+  .exec-block .fields .lbl {
+    color: var(--muted);
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .exec-block .fields .val {
+    border-bottom: 1px dashed #ddd;
+    padding: 2px 0;
+    flex: 1;
+    min-width: 40px;
+  }
+  .exec-block .fields .val:focus {
+    border-bottom-color: var(--accent);
+    outline: none;
+  }
+  .exec-block .full {
+    grid-column: 1 / -1;
+  }
+
+  .exec-block textarea {
+    width: 100%;
+    border: 1px dashed #ddd;
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 40px;
+    background: #fafaf8;
+  }
+  .exec-block textarea:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  /* ── 引导话术速查表 ── */
+  .cheatsheet {
+    background: white;
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin: 32px 0 var(--card-gap);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .cheatsheet h2 { font-size: 18px; margin-bottom: 14px; }
+  .cheatsheet table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .cheatsheet th {
+    text-align: left;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cheatsheet td {
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: top;
+  }
+  .cheatsheet td:first-child { font-weight: 600; white-space: nowrap; }
+  .cheatsheet .do   { color: #2e7d32; }
+  .cheatsheet .dont { color: #c62828; }
+
+  /* ── 底部按钮区 ── */
+  .toolbar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 10px;
+    z-index: 10;
+  }
+  .toolbar button {
+    padding: 8px 18px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: white;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .toolbar button:hover { background: #f5f5f5; border-color: #aaa; }
+  .toolbar button.primary { background: #333; color: white; border-color: #333; }
+  .toolbar button.primary:hover { background: #555; }
+
+  /* ── 响应式：平板 / 手机端 ── */
+  @media (max-width: 700px) {
+    body { padding: 8px; }
+    .shot-body { grid-template-columns: 1fr; }
+    /* 移动端保留 2 列网格，防止图片挤成一行 */
+    .ref-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      max-height: none;
+      overflow-y: visible;
+    }
+    .ref-zone {
+      flex: unset;
+      min-height: 90px;
+      width: 100%;
+    }
+    .ref-zone img { max-height: 240px; object-fit: contain; }
+    .header .meta { grid-template-columns: 1fr 1fr; }
+    .header { padding: 16px 18px; }
+    .shot { padding: 16px 18px; }
+    .cheatsheet { padding: 16px 18px; }
+    .cheatsheet table { font-size: 11px; }
+    .ref-zone .slot-del { display: block; width: 26px; height: 26px; line-height: 26px; font-size: 16px; top: 2px; left: 2px; }
+    .ref-zone .del-btn { width: 26px; height: 26px; line-height: 26px; font-size: 14px; top: 2px; right: 2px; }
+    .toolbar button { padding: 10px 16px; font-size: 14px; }
+    .shot-del { padding: 6px 12px; font-size: 14px; }
+    .shot-title { font-size: 16px; }
+    .exec-block .fields { font-size: 14px; }
+    .exec-block textarea { font-size: 14px; min-height: 50px; }
+  }
+
+  /* ── 窄屏手机（< 480px）── */
+  @media (max-width: 480px) {
+    .ref-zone { min-height: 70px; }
+    .ref-zone img { max-height: 180px; }
+    .header .meta { grid-template-columns: 1fr; }
+    .cheatsheet table { font-size: 10px; }
+    .cheatsheet th, .cheatsheet td { padding: 6px 4px; }
+  }
+
+  /* ── 打印 ── */
+  @media print {
+    body { background: white; padding: 0; max-width: 100%; }
+    .toolbar { display: none; }
+    .shot, .header, .cheatsheet { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+    .ref-grid { max-height: 350px; }
+  }
+</style>
+<style>
+        .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;justify-content:center;align-items:center;z-index:10000;}
+        .modal-content{background:white;padding:20px;border-radius:8px;width:400px;box-shadow:0 4px 15px rgba(0,0,0,0.2);position:relative;}
+        .modal-title{margin:0 0 10px 0;font-size:20px;}
+        .modal-description{margin-bottom:20px;font-size:14px;color:#666;}
+        .modal-description a{color:#007bff;text-decoration:underline;}
+        .modal-close-btn{position:absolute;top:10px;right:10px;background-color:red;color:white;border:none;border-radius:50%;width:24px;height:24px;font-size:16px;cursor:pointer;display:flex;justify-content:center;align-items:center;line-height:1;}
+        .modal-close-btn:hover{background-color:darkred;}
+        .gui-input{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;margin-bottom:20px;font-size:14px;}
+        #save-token{background-color:#28a745;color:white;border:none;padding:10px 20px;cursor:pointer;border-radius:4px;margin-right:10px;}
+        #cancel-token{background-color:#dc3545;color:white;border:none;padding:10px 20px;cursor:pointer;border-radius:4px;}
+        @media (prefers-color-scheme: dark){
+        .modal-overlay{background:rgba(0,0,0,0.7);}
+        .modal-content{background:#1e1e1e;color:#e6e6e6;box-shadow:0 6px 20px rgba(0,0,0,0.6);}
+        .modal-description{color:#aaa;}
+        .modal-description a{color:#58a6ff;}
+        .gui-input{background:#2a2a2a;color:#e6e6e6;border:1px solid #444;}
+        #save-token{background-color:#238636;}
+        #cancel-token{background-color:#b62324;}
+}
+</style><style>
+        .h2m-selection-box {
+            border: 2px dashed #f00;
+            background-color: rgba(255, 0, 0, 0.2);
+        }
+        .h2m-no-scroll {
+            overflow: hidden;
+            z-index: 9997;
+        }
+        .h2m-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 80%;
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: row;
+            z-index: 9999;
+        }
+        .h2m-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9998;
+        }
+        .h2m-modal textarea,
+        .h2m-modal .h2m-preview {
+            width: 50%;
+            height: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        @media (prefers-color-scheme: dark){
+        .h2m-modal .h2m-preview{background:#1e1e1e;color:#e6e6e6;}
+        }
+        .h2m-modal .h2m-buttons {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+        }
+        .h2m-modal .h2m-buttons button,
+        .h2m-modal .h2m-obsidian-select {
+            margin-left: 10px;
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 13px 16px;
+            border-radius: 10px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            transition-duration: 0.4s;
+            cursor: pointer;
+        }
+        .h2m-modal .h2m-buttons button:hover,
+        .h2m-modal .h2m-obsidian-select:hover {
+            background-color: #45a049;
+        }
+        .h2m-modal .h2m-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            cursor: pointer;
+            width: 25px;
+            height: 25px;
+            background-color: #f44336;
+            color: white;
+            font-size: 16px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .h2m-tip {
+            position: fixed;
+            top: 22%;
+            left: 82%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            border: 1px solid black;
+            padding: 8px;
+            z-index: 9999;
+            border-radius: 10px;
+            box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+            background-color: rgba(255, 255, 255, 0.7);
+        }
+    </style><style>
+  .ai-operation:hover {
+    color: #ff480d; /* No quotes around the color value */
+  }
+</style><style id="market-mate-selection-bubble-font">@font-face{font-family:market-mate-iconfont;src:url(data:font/woff;base64,d09GRgABAAAAAAe0AAsAAAAAC5wAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAABHU1VCAAABCAAAADsAAABUIIslek9TLzIAAAFEAAAARAAAAGA8FkkDY21hcAAAAYgAAABqAAABuLOGsyJnbHlmAAAB9AAAA5MAAAR4k7WkI2hlYWQAAAWIAAAALgAAADYvuB7zaGhlYQAABbgAAAAcAAAAJAfeA4dobXR4AAAF1AAAAA4AAAAYGAAAAGxvY2EAAAXkAAAADgAAAA4EaALkbWF4cAAABfQAAAAfAAAAIAEXAIRuYW1lAAAGFAAAAVgAAAL317GhgXBvc3QAAAdsAAAARwAAAF3dLCJgeJxjYGRgYOBiMGCwY2BycfMJYeDLSSzJY5BiYGGAAJA8MpsxJzM9kYEDxgPKsYBpDiBmg4gCACY7BUgAeJxjYGFhYJzAwMrAwNTJdIaBgaEfQjO%2BZjBi5ACKMrAyM2AFAWmuKQwHnjE%2BM2Zu%2BN%2FAwMB8hwFIMjCiKGICAGgnDJR4nO2Ryw2AMAxDnX4oQh2FW2%2FMwBycmDtrFCeBLXD0qsStcnABVACZ7KQAckNguuiK%2Bxmb%2BwUH55WVAM3adMzJTr7OJbzvLNtW%2BdK3yIJf3c%2FznaolF1jumgL3c%2BA5t8D%2BSEcAeQAhdxX%2BAAB4nE1Tz28bVRB%2Bs%2Bt9z%2FvLayf7I47t2Nmt14E0dr2xdxtbtWMRIi6Jk6iiRKEigiZtb9AicWiRyoFrVapWRYiGqhESRCDEBRQ4mDtcUKjKCYn%2FoJeKkw3zNgGxb9%2FsN6NvRvvmfUMEQv5%2BIP4mvkpyZJsQ8MMudCAKA2cKimCbBqSAUbdShcq4c%2BzWcFfFjjAfOIHNqAGUUc9lnGdilmMHURh1hC6EUbxsCwl8CesMmNnZVLCAstkxGfWjVRUddfXsvU%2BpVJJS0qPlLw%2FubJrN63uv6TNygmoyVSQlObPW2c46Tna707rZ6p6ZOJWlEkhjpqbTMWDJTMrOCPcFHRLaVpfS7paWAF1Q0xcWKF24kB7%2BcUdKURcz7jUrpZ37X33xwStShiqKpCaSeV70%2FYXuG7x%2BbSLqeS%2FShGHp6SSVt7wXKqVSlhCSwD59KH4v3iAZ4pEz5Bz2yrYyJpNopew3M42oHDpS2Ucfo45ko49RZqbArUKjA8EUsEYV3BSYUxB0QLzZao0G7fZo0GpBr92G6dEglxsNJiehl8tBb%2FLnav%2F1fjU2i4V6q16IjfCZuzS6veQeuvguwbUYPTs0jMN0cXS7mD5GcK34e%2FUkGb%2BFk%2BRCnTA8x5E4EHt4ijbpkpfIRfIueQ9P02z4s%2BDSAnjcmHYbLG6C8BzMc9PwvchzfQQhRm2kUORz35MsrzmNG%2Bw4VAMP1cBRNI5yCh3bwRL%2Fz%2Fi3Qnm%2BAudldorJj8183nwcwwMOv1ZlTZOPiqf1pC1r6vDhXXj7E%2BGKmGRFpojlp56osBnGhM9ZWnCsdHJ4%2FegkQZPtpC4U9taFZ4tMltli3vzJzN%2Fi8FYM08iQtdPF5zzhubr2CJ9hRDUmbaxTplF4Jy2DoiYzox812ZJ1ztR1ZG5%2FSwifl19RBxukQAJCyihrPht%2BxIcmVj8qPR4UHBqxUfErvsu1b2IT4sEIhT83ru68tXN3YiKf%2F3j30s6Vh9PFcevlfUoNlmHna3Mra4drK3O1%2F8CNZdMslfYu71y6%2FKCQc7If7b65e3V9n45Rg1J4erG%2FUsVnpf9Df3WuWp1b7aNciYj%2F%2BYv4nXiWOKRCQrzf48bPTwdctvFFoD59T8qYNgbD2Jl26TgPcxqy0BcyqmGoUKsvGYquGkV7qAeeMOsFgTd84gXLOKDCrGUNn8jCX4aqK8ZSffRNnLJuFw845YQ%2B3KfIlDWkWoT8AxCv0HgAeJxjYGRgYABipkVr0uP5bb4ycLMwgMAzn9xqBP2%2FlYWBGcTnYGACiQIAFPEJrAAAeJxjYGRgYG7438AQw8IAAkCSkQEVsAEARwwCb3icY2FgYGDBggEBaAAZAAAAAAAAAJQA%2BAGYAewCPAAAeJxjYGRgYGBjqGBgZwABJiDmAkIGhv9gPgMAFUUBnAB4nI2SzU7CQBSFz%2FBnhEQTNa5nhSSm5WdjwlIS2LPo1pQy5a%2FtNNOBhIcx8R18Gje%2BhC%2FgoYwbZEGbufnuuefezrQFcIdvCByve64jCzwwO3IFV3hyXKXuO66RXx3X0ULguEE9dNzEM7aOW5z4wQmids2sjU%2FHAh18Oa7gRgjHVXTEreMa%2BcVxHY%2FizXGD%2BtZxE4F4d9xCW%2FyMjAqtmsvZXq4incU6s2loNsp6KXXvT5uqxTYJzbnSOS1QpljpTPb93rnyRGXK%2FD222C0G1sYyNjqVY1ZVkmiZG71WkfWX1ubDbjd2uh%2FpFCMYKL4%2ByziHxAx7xhUiaGSIy2iR0mGwocfCK7OD3%2Fvnm1Jd8AMkpf%2FSrkt9AVWDgvohl%2Bjz1%2Bhd3D2hmpUTTk9bYMddD6hauiWXYU9KGrtexRMlZIm8rK2pRNR9LMuuHEN0eccnfr%2FcQ%2FoLJz6TTHicY2BigAAuBuyAjZGJkZmRhZGVkY2RnYHD0bM4v7S4NJ8%2FUbc4I7UqIzO7NDErMy%2BdNS0xrzKTDSLJmlYKlGFgAACRcxCAAA%3D%3D)}.market-mate-selection-bubble-font{font-size:14px;font-style:normal;font-family:market-mate-iconfont!important}</style></head>
+<body>
+
+<input id="om0l3h534dc" type="hidden" name="market-mate-for-1688" value="installed" data-version="1.1.4" data-package="edge-store" data-id="pmboidfffhijmecmhpmgpmnkjamipkdo" data-content-script-message-host-web-app-channel-id="pmboidfffhijmecmhpmgpmnkjamipkdo-content-script-message-with-host-web-app"><!-- ═══════════════════════════════════════════ -->
+<!--  工具栏 -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="toolbar">
+  <button onclick="addShot()" title="添加一张新的 Shot 执行卡">＋ 新增 Shot</button>
+  <button class="primary" onclick="window.print()">🖨️ 打印</button>
+  <button onclick="exportHTML()">📥 保存到本地</button>
+  <button class="primary" onclick="saveToCloud()">☁️ 保存到云端</button>
+  <span style="font-size: 12px; color: rgb(255, 152, 0); margin-left: auto; align-self: center;" id="save-status">⏳ 正在保存...</span>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  项目信息 -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="header">
+  <h1 contenteditable="true">📷 项目名称（点击编辑）</h1>
+  <div class="meta">
+    <div><label>日期</label><span contenteditable="true"></span></div>
+    <div><label>地点</label><span contenteditable="true"></span></div>
+    <div><label>模特</label><span contenteditable="true"></span></div>
+    <div><label>摄影师</label><span contenteditable="true"></span></div>
+    <div><label>镜头</label><span contenteditable="true"></span></div>
+    <div><label>风格/色调</label><span contenteditable="true"></span></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  Shot 卡片容器 -->
+<!-- ═══════════════════════════════════════════ -->
+<div id="shots-container">
+
+  <!-- Shot 模板（JS 也用这个结构克隆） -->
+
+<div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 1</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+    <button class="shot-del" title="删除此 Shot">🗑 删除</button></div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0000.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0001.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            图 ③<br><small style="color:#ccc;">Ctrl+V 贴图</small>
+          </div>
+        <button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            图 ④<br><small style="color:#ccc;">Ctrl+V 贴图</small>
+          </div>
+        <button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 2</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+    <button class="shot-del" title="删除此 Shot">🗑 删除</button></div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0002.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0003.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            图 ③<br><small style="color:#ccc;">Ctrl+V 贴图</small>
+          </div>
+        <button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            图 ④<br><small style="color:#ccc;">Ctrl+V 贴图</small>
+          </div>
+        <button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 3</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+    <button class="shot-del" title="删除此 Shot">🗑 删除</button></div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0004.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0005.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            图 ③<br><small style="color:#ccc;">Ctrl+V 贴图</small>
+          </div>
+        <button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            图 ④<br><small style="color:#ccc;">Ctrl+V 贴图</small>
+          </div>
+        <button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 4</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+    <button class="shot-del" title="删除此 Shot">🗑 删除</button></div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0006.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0007.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0008.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            图 ④<br><small style="color:#ccc;">Ctrl+V 贴图</small>
+          </div>
+        <button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 5</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+    <button class="shot-del" title="删除此 Shot">🗑 删除</button></div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0009.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0010.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0011.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0012.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 6</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+    <button class="shot-del" title="删除此 Shot">🗑 删除</button></div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0013.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0014.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0015.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+        <div class="ref-zone has-image" contenteditable="true" onpaste="handlePaste(event, this)" onclick="if(this.querySelector('img')){} else this.focus()">
+          
+        <img src="img/img_0016.jpg" loading="lazy" loading="lazy"><button class="slot-del" title="移除此格">−</button><button class="del-btn" title="删除图片">✕</button><input type="file" accept="image/*" style="display: none;"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 1</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0017.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0018.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0019.jpg" loading="lazy" loading="lazy"></div>
+        
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 2</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0020.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0021.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0022.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 3</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0023.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0024.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0025.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0026.jpg" loading="lazy" loading="lazy"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 4</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0027.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0028.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0029.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 5</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0030.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0031.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0032.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0033.jpg" loading="lazy" loading="lazy"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 6</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0034.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0035.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0036.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0037.jpg" loading="lazy" loading="lazy"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 1</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0038.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0039.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0040.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0041.jpg" loading="lazy" loading="lazy"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 2</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0042.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0043.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0044.jpg" loading="lazy" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0045.jpg" loading="lazy" loading="lazy"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 3</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0046.jpg" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0047.jpg" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0048.jpg" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0049.jpg" loading="lazy"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 4</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0050.jpg" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0051.jpg" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0052.jpg" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0053.jpg" loading="lazy"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 5</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0054.jpg" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0055.jpg" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0056.jpg" loading="lazy"></div>
+        <div class="ref-zone has-image" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder" style="display: none;">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        <img src="img/img_0057.jpg" loading="lazy"></div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 6</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 1</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 2</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 3</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 4</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 5</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div><div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot 6</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone" onpaste="handlePaste(event, this)" onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div></div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  引导话术速查表 -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="cheatsheet">
+  <h2>🗣️ 引导话术速查</h2>
+  <table>
+    <thead>
+      <tr><th>想要的感觉</th><th>✅ 可以这样说</th><th>❌ 不要这样说</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>自然笑容</td><td class="do">"想想上次笑到肚子疼的事"</td><td class="dont">"笑一个"</td></tr>
+      <tr><td>酷 / 不笑</td><td class="do">"看我，别笑，对就这样"</td><td class="dont">"别笑那么僵"</td></tr>
+      <tr><td>温柔眼神</td><td class="do">"看我镜头上面一点点，放松眼皮"</td><td class="dont">"眼神温柔一点"</td></tr>
+      <tr><td>动态抓拍</td><td class="do">"慢慢往前走，我叫你回头再回头"</td><td class="dont">"走起来！转！"</td></tr>
+      <tr><td>放松身体</td><td class="do">"甩甩手，深呼吸，就当我不存在"</td><td class="dont">"放松！你太紧张了"</td></tr>
+      <tr><td>侧脸轮廓</td><td class="do">"下巴微微抬一点，看窗外"</td><td class="dont">"侧过去"</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:14px;font-size:13px;color:var(--muted);">
+    <strong>万能原则：</strong>不说否定句 · 用动作不用形容词 · 每拍几张就夸
+  </p>
+</div>
+
+
+<script>
+// ── Shot HTML 生成 ──
+function shotHTML(n) {
+  return `
+  <div class="shot">
+    <div class="shot-header">
+      <span class="shot-num">Shot ${n}</span>
+      <div class="shot-title" contenteditable="true">场景 / 主题（点击编辑）</div>
+      <button class="shot-del" onclick="this.closest('.shot').remove()" title="删除此 Shot">🗑 删除</button>
+    </div>
+    <div class="shot-body">
+      <!-- 左：参考图 2×2 -->
+      <div class="ref-grid">
+        <div class="ref-zone"
+             onpaste="handlePaste(event, this)"
+             onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone"
+             onpaste="handlePaste(event, this)"
+             onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone"
+             onpaste="handlePaste(event, this)"
+             onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+        <div class="ref-zone"
+             onpaste="handlePaste(event, this)"
+             onclick="pickImage(this)">
+          <button class="slot-del" onclick="event.stopPropagation();deleteSlot(this.parentElement)" title="移除此格">−</button>
+          <button class="del-btn" onclick="event.stopPropagation();deleteImage(this.parentElement)" title="删除图片">✕</button>
+                    <input type="file" accept="image/*" style="display:none" onchange="handleFilePick(event, this.parentElement)">
+          <div class="placeholder">
+            <span class="icon">🖼️</span>
+            点击添加<br><small style="color:#ccc;">或 Ctrl+V</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：执行卡 -->
+      <div class="exec">
+
+        <!-- 机位 -->
+        <div class="exec-block">
+          <h3>🎬 机位／构图</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">焦段</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">角度</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">景别</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">机位高</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">对焦点</span><span class="val" contenteditable="true"></span></div>
+            <div class="field full"><span class="lbl">构图</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 姿势 -->
+        <div class="exec-block">
+          <h3>🧍 姿势技巧</h3>
+          <div class="fields">
+            <div class="field"><span class="lbl">身体</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">头部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">手部</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">腿/站姿</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">眼神</span><span class="val" contenteditable="true"></span></div>
+            <div class="field"><span class="lbl">动态/静态</span><span class="val" contenteditable="true"></span></div>
+          </div>
+        </div>
+
+        <!-- 引导 -->
+        <div class="exec-block">
+          <h3>🗣️ 引导话术</h3>
+          <textarea placeholder="情绪关键词、具体话术、调动技巧…"></textarea>
+        </div>
+
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── 初始化 6 张 Shot ──
+const container = document.getElementById('shots-container');
+let shotCount = 0;
+
+function initShots(n) {
+  for (let i = 1; i <= n; i++) addShot(false);
+}
+function addShot(animate = true) {
+  shotCount++;
+  const div = document.createElement('div');
+  div.innerHTML = shotHTML(shotCount);
+  const el = div.firstElementChild;
+  if (animate) {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(10px)';
+    el.style.transition = 'all 0.3s';
+  }
+  container.appendChild(el);
+  if (animate) {
+    requestAnimationFrame(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    });
+  }
+}
+
+initShots(6);
+
+// ── 图片粘贴处理 ──
+function handlePaste(e, refZone) {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const blob = item.getAsFile();
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        // 压缩后再插入
+        compressImage(ev.target.result, function(compressed) {
+          refZone.querySelectorAll('img').forEach(i => i.remove());
+          const img = document.createElement('img');
+          img.src = compressed;
+          refZone.appendChild(img);
+          refZone.classList.add('has-image');
+          const placeholder = refZone.querySelector('.placeholder');
+          if (placeholder) placeholder.style.display = 'none';
+        });
+      };
+      reader.readAsDataURL(blob);
+      return;
+    }
+  }
+}
+
+// ── 图片压缩（缩小尺寸 + JPEG 压缩，减少文件体积）──
+function compressImage(dataUrl, callback) {
+  var img = new Image();
+  img.onload = function() {
+    var maxW = 1200, maxH = 1200;
+    var w = img.width, h = img.height;
+    // 只缩小超过限制的图，小图保持原尺寸
+    if (w > maxW || h > maxH) {
+      var ratio = Math.min(maxW / w, maxH / h);
+      w = Math.round(w * ratio);
+      h = Math.round(h * ratio);
+    }
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', 0.8));
+  };
+  img.src = dataUrl;
+}
+
+// ── 压缩页面中已有的 base64 图片（PNG → JPEG，大幅减小体积）──
+function compressExistingImages() {
+  var allImgs = document.querySelectorAll('.ref-zone img');
+  var pending = allImgs.length;
+  if (pending === 0) return;
+  allImgs.forEach(function(oldImg) {
+    // 跳过已是 JPEG 的
+    if (oldImg.src.indexOf('image/jpeg') !== -1) {
+      pending--;
+      return;
+    }
+    compressImage(oldImg.src, function(compressed) {
+      oldImg.src = compressed;
+      pending--;
+    });
+  });
+}
+
+// ── 删除图片 ──
+function deleteImage(refZone) {
+  refZone.querySelectorAll('img').forEach(i => i.remove());
+  refZone.classList.remove('has-image');
+  const placeholder = refZone.querySelector('.placeholder');
+  if (placeholder) placeholder.style.display = '';
+}
+
+// ── 删除格子 ──
+function deleteSlot(refZone) {
+  refZone.remove();
+}
+
+// ── 移动端：点击格子打开文件选择器 ──
+function pickImage(refZone) {
+  const input = refZone.querySelector('input[type=file]');
+  if (input) input.click();
+}
+
+// ── 文件选择后的处理 ──
+function handleFilePick(event, refZone) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    compressImage(ev.target.result, function(compressed) {
+      refZone.querySelectorAll('img').forEach(i => i.remove());
+      const img = document.createElement('img');
+      img.src = compressed;
+      refZone.appendChild(img);
+      refZone.classList.add('has-image');
+      const placeholder = refZone.querySelector('.placeholder');
+      if (placeholder) placeholder.style.display = 'none';
+    });
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+// ── 初始化已有 Shot：补删除按钮 + 补图片删除按钮 ──
+document.addEventListener('DOMContentLoaded', function() {
+  // 1. 给每个 Shot 标题栏补「删除 Shot」按钮
+  document.querySelectorAll('.shot-header').forEach(function(header) {
+    if (header.querySelector('.shot-del')) return;
+    var btn = document.createElement('button');
+    btn.className = 'shot-del';
+    btn.textContent = '🗑 删除';
+    btn.title = '删除此 Shot';
+    btn.onclick = function() { this.closest('.shot').remove(); };
+    header.appendChild(btn);
+  });
+  // 2. 给每个已有 ref-zone 补按钮和文件选择器
+  document.querySelectorAll('.ref-zone').forEach(function(zone) {
+    // 补 − 移除格子按钮
+    if (!zone.querySelector('.slot-del')) {
+      var sdel = document.createElement('button');
+      sdel.className = 'slot-del';
+      sdel.textContent = '−';
+      sdel.title = '移除此格';
+      sdel.onclick = function(e) { e.stopPropagation(); deleteSlot(zone); };
+      zone.appendChild(sdel);
+    }
+    // 补 ✕ 图片删除按钮
+    if (!zone.querySelector('.del-btn')) {
+      var del = document.createElement('button');
+      del.className = 'del-btn';
+      del.textContent = '✕';
+      del.title = '删除图片';
+      del.onclick = function(e) { e.stopPropagation(); deleteImage(zone); };
+      zone.appendChild(del);
+    }
+    // 补隐藏文件选择器
+    if (!zone.querySelector('input[type=file]')) {
+      var finp = document.createElement('input');
+      finp.type = 'file';
+      finp.accept = 'image/*';
+      finp.style.display = 'none';
+      finp.onchange = function(e) { handleFilePick(e, zone); };
+      zone.appendChild(finp);
+    }
+    // 补点击事件：点格子打开文件选择器
+    zone.onclick = function(e) {
+      if (e.target === zone || (e.target.classList && e.target.classList.contains('placeholder')) || (e.target.closest && e.target.closest('.placeholder'))) {
+        pickImage(zone);
+      }
+    };
+    // 如果已有图片，激活状态
+    if (zone.querySelector('img')) {
+      zone.classList.add('has-image');
+      var ph = zone.querySelector('.placeholder');
+      if (ph) ph.style.display = 'none';
+    }
+  });
+
+  // 3. 压缩已有 base64 图片（PNG → JPEG，体积减少 80-95%）
+  compressExistingImages();
+});
+
+// ── 保存到本地（支持记住路径，第二次直接覆盖）──
+let savedFileHandle = null;
+
+async function exportHTML() {
+  const html = document.documentElement.outerHTML;
+  const blob = new Blob(['<!DOCTYPE html>\n' + html], { type: 'text/html;charset=UTF-8' });
+
+  // 如果浏览器支持 File System Access API（Chrome/Edge 等）
+  if (window.showSaveFilePicker) {
+    try {
+      // 第一次：弹窗选保存位置；之后：直接覆盖
+      if (!savedFileHandle) {
+        savedFileHandle = await window.showSaveFilePicker({
+          suggestedName: '人像拍摄执行卡_协作版.html',
+          types: [{ description: 'HTML', accept: { 'text/html': ['.html'] } }]
+        });
+      }
+      const writable = await savedFileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      // 轻提示
+      showToast('✅ 已保存（坚果云会自动同步）');
+      return;
+    } catch (e) {
+      // 用户取消或出错，降级到下载方式
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // 降级：传统下载方式
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '人像拍摄执行卡_协作版.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── 轻提示 ──
+function showToast(msg) {
+  var t = document.getElementById('save-toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'save-toast';
+    t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 24px;border-radius:20px;font-size:14px;z-index:9999;transition:opacity .3s;pointer-events:none;';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function() { t.style.opacity = '0'; }, 2000);
+}
+
+
+
+// ── 保存到云端 ──
+const GITHUB_REPO = 'heniyijing/portrait-shooting-card';
+const GITHUB_PATH = 'index.html';
+const GITHUB_BRANCH = 'master';
+
+function getToken() {
+  var t = localStorage.getItem('github_save_token');
+  if (!t) {
+    t = prompt('首次使用请输入 GitHub Token（只需一次）：\n\n前往 https://github.com/settings/tokens 创建，勾选 repo 权限');
+    if (t) localStorage.setItem('github_save_token', t);
+  }
+  return t;
+}
+
+async function saveToCloud() {
+  var el = document.getElementById('save-status');
+  var token = getToken();
+  if (!token) { if (el) { el.textContent = '未输入 Token'; el.style.color = '#e53935'; } return; }
+  if (el) { el.textContent = '⏳ 正在保存...'; el.style.color = '#ff9800'; }
+
+  try {
+    var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    var api = 'https://api.github.com/repos/' + GITHUB_REPO + '/contents/' + GITHUB_PATH;
+    var r1 = await fetch(api + '?ref=' + GITHUB_BRANCH, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    var d1 = await r1.json();
+    if (!d1.sha) throw new Error('无法获取文件信息，Token 是否有效？');
+
+    var b64 = btoa(unescape(encodeURIComponent(html)));
+    var r2 = await fetch(api, {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+      body: JSON.stringify({ message: '📷 更新 ' + new Date().toLocaleString('zh-CN'), content: b64, sha: d1.sha, branch: GITHUB_BRANCH })
+    });
+
+    if (r2.ok) {
+      if (el) { el.textContent = '✅ 已保存！Netlify 自动更新中'; el.style.color = '#4caf50'; }
+      showToast && showToast('✅ 已保存');
+    } else {
+      var d2 = await r2.json();
+      throw new Error(d2.message || '保存失败');
+    }
+  } catch (e) {
+    if (el) { el.textContent = '❌ ' + e.message; el.style.color = '#e53935'; }
+    console.error(e);
+  }
+}
+
+</script>
+
+
+
