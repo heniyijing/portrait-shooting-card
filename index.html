@@ -2580,10 +2580,33 @@ function deleteSlot(refZone) {
   refZone.remove();
 }
 
-// ── 移动端：点击格子打开文件选择器 ──
+// ── 点击格子：有图则放大查看，无图则弹文件选择器 ──
 function pickImage(refZone) {
-  const input = refZone.querySelector('input[type=file]');
-  if (input) input.click();
+  var img = refZone.querySelector('img');
+  if (img) {
+    // 放大查看
+    showLightbox(img.src);
+  } else {
+    var input = refZone.querySelector('input[type=file]');
+    if (input) input.click();
+  }
+}
+
+// ── 图片灯箱 ──
+function showLightbox(src) {
+  var lb = document.getElementById('img-lightbox');
+  if (!lb) {
+    lb = document.createElement('div');
+    lb.id = 'img-lightbox';
+    lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+    lb.onclick = function() { lb.style.display = 'none'; };
+    var img = document.createElement('img');
+    img.style.cssText = 'max-width:95vw;max-height:95vh;object-fit:contain;border-radius:4px;';
+    lb.appendChild(img);
+    document.body.appendChild(lb);
+  }
+  lb.querySelector('img').src = src;
+  lb.style.display = 'flex';
 }
 
 // ── 文件选择后的处理 ──
